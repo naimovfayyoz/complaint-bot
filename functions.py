@@ -15,7 +15,7 @@ def join(chat_id):
 
 async def antiflood(*args, **kwargs):
     m = args[0]
-    if m.chat.id == admin:
+    if m.chat.id in ADMINS:
     	pass
     else:
     	await m.answer("Сработал антифлуд! Прекрати флудить и жди 3 секунды. Наш канал - @")

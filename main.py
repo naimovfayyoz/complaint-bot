@@ -1,17 +1,18 @@
 import logging
-import aiohttp
 from aiogram import Bot, Dispatcher, executor, types
-from config import API_TOKEN, admin, proxy_url
+from config import API_TOKEN, admin
 import keyboard as kb
 import functions as func
 import sqlite3
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.utils.executor import start_webhook
 
 storage = MemoryStorage()
 logging.basicConfig(level=logging.INFO)
-bot = Bot(token=API_TOKEN, proxy=proxy_url)
+
+bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=storage)
 connection = sqlite3.connect('data.db')
 q = connection.cursor()
@@ -25,20 +26,19 @@ class st(StatesGroup):
 
 
 @dp.message_handler(commands=['start'])
-async def start(message: types.Message):
+async def on_startup(message: types.Message):
     func.join(chat_id=message.chat.id)
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             await message.answer('Добро пожаловать, босс.', reply_markup=kb.menu)
 
         else:
             await message.answer(
-                'Это бот для АНОНИМНЫХ жалоб и предложений SamRafoatTextile. Ваша АНОНИМНАЯ жалоба/предложение будет напрямую рассмотрено начальством.\n')
-            await bot.send_message(message.from_user.id, message.from_user.first_name)
+                'Это бот для АНОНИМНЫХ жалоб и предложений SamRafoatTextile. Ваша АНОНИМНАЯ жалоба/предложение будет напрямую рассмотрено начальством.Просьба - отправляйте жалобы в одном сообщении!\n')
             await message.answer(
-                'Bu Anonim shikoyatlar va takliflar uchun SamRafoatTixtile ni boti. Sizning shikoyatlaringiz va takliflaringiz tugridan tugri boshliqlar tomonidan urganib chiqariladi.\n')
+                'Bu Anonim shikoyatlar va takliflar uchun SamRafoatTixtile ning boti. Sizning shikoyatlaringiz va takliflaringiz tugridan tugri boshliqlar tomonidan urganib chiqariladi. Iltimos, xabarlaringizni 1 ta xabar qilib junating!\n')
     else:
         await message.answer('Ты был заблокирован админом')
 
@@ -49,7 +49,7 @@ async def handfler(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             await message.answer('Добро пожаловать в админ-панель.', reply_markup=kb.adm)
 
 
@@ -64,7 +64,7 @@ async def handlaer(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             q.execute(f"SELECT * FROM users ")
             result = q.fetchall()
 
@@ -73,7 +73,6 @@ async def handlaer(message: types.Message, state: FSMContext):
                 i = index[0]
                 # name = bot.send_message(i, message.from_user.first_name)
                 # username = bot.send_message(message.from_user.id, message.from_user.mention)
-
                 sl.append(i)
 
             ids = '\n'.join(map(str, sl))
@@ -86,7 +85,7 @@ async def handlaer(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             q.execute(f"SELECT * FROM users WHERE block == 1")
             result = q.fetchall()
             sl = []
@@ -104,7 +103,7 @@ async def hanadler(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             await message.answer(
                 'Введите id пользователя, которого нужно заблокировать.\nДля отмены - нажмите на кнопку ниже',
                 reply_markup=kb.back)
@@ -117,7 +116,7 @@ async def hfandler(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             await message.answer(
                 'Введите id пользователя, которого нужно разблокировать.\nДля отмены - нажмите на кнопку ниже',
                 reply_markup=kb.back)
@@ -130,7 +129,7 @@ async def hangdler(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             await message.answer('Введите текст для рассылки.\n\nДля отмены - нажми на кнопку ниже',
                                  reply_markup=kb.back)
             await st.item.set()
@@ -143,13 +142,15 @@ async def h(message: types.Message, state: FSMContext):
     q.execute(f"SELECT block FROM users WHERE user_id = {message.chat.id}")
     result = q.fetchone()
     if result[0] == 0:
-        if message.chat.id == admin:
+        if message.chat.id in admin:
             pass
         else:
             await message.answer('Сообщение отвправлано!.')
-            await bot.send_message(admin,
-                                   f"<b>Получен новый вопрос!</b>\n<b>От:</b> {message.from_user.mention}\nID: {message.chat.id}\n<b>Сообщение:</b> {message.text}",
-                                   reply_markup=kb.fun(message.chat.id), parse_mode='HTML')
+            for i in admin:
+                print(i)
+                await bot.send_message(i,
+                                       f"<b>Получен новый вопрос!</b>\n<b>От:</b> {message.from_user.mention}\nID: {message.chat.id}\n<b>Сообщение:</b> {message.text}",
+                                       reply_markup=kb.fun(message.chat.id), parse_mode='HTML')
     else:
         await message.answer('Вы были заблокированы за спам.')
 
@@ -260,11 +261,19 @@ async def proc(message: types.Message, state: FSMContext):
             await message.answer('Ты вводишь буквы...\nВведи ID')
 
 
+async def on_shutdown(dp):
+    logging.warning('Shutting down..')
+
+    # Remove webhook (not acceptable in some cases)
+    await bot.delete_webhook()
+
+    # Close DB connection (if used)
+    await dp.storage.close()
+    await dp.storage.wait_closed()
+
+    logging.warning('Bye!')
+
+
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
 
-# To get photo
-# @dp.message_handler(commands=['photo'])
-# async def get_user_photo(message: types.Message):
-#     profile_pictures = await dp.bot.get_user_profile_photos(894975182)
-#     await message.answer_photo(dict((profile_pictures.photos[0][0])).get("file_id"))
